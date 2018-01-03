@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE log4j:configuration SYSTEM "log4j.dtd">
+
+<!--<log4j:configuration xmlns:log4j="http://jakarta.apache.org/log4j/">-->
+<log4j:configuration>
+
+    <appender name="console" class="org.apache.log4j.ConsoleAppender">
+        <layout class="org.apache.log4j.PatternLayout">
+            <param name="ConversionPattern"
+                   value="%d{HH:mm:ss}|%p|%c|%m%n"/>
+        </layout>
+    </appender>
+
+    <logger name="akka.actor"> <level value="ERROR" /> </logger>
+    <logger name="play"> <level value="ERROR" /> </logger>
+    <logger name="play.api.libs.ws"> <level value="ERROR" /> </logger>
+    <logger name="org.spark_project"> <level value="WARN" /> </logger>
+    <logger name="org.apache.spark"> <level value="WARN" /> </logger>
+    <logger name="org.apache.hadoop"> <level value="FATAL" /> </logger>
+    <logger name="org.apache.parquet"> <level value="ERROR" /> </logger>
+    <logger name="parquet"> <level value="ERROR" /> </logger>
+
+
+    <!-- Off these ones as they are annoying, and anyway we manage configuration ourselves -->
+    <!--<logger name="com.avaje.ebean.config.PropertyMapLoader" level="OFF" />-->
+    <!--<logger name="com.avaje.ebeaninternal.server.core.XmlConfigLoader" level="OFF" />-->
+    <!--<logger name="com.avaje.ebeaninternal.server.lib.BackgroundThread" level="OFF" />-->
+    <!--<logger name="com.gargoylesoftware.htmlunit.javascript" level="OFF" />-->
+    <!--<logger name="org.asynchttpclient.netty.channel.DefaultChannelPool" level="OFF" />-->
+    <!--<logger name="com.rabbitmq.client" level="OFF"/>-->
+    <!--<logger name="com.spingo.op_rabbit.ConfirmedPublisherActor" level="OFF"/>-->
+    <!--<logger name="com.thenewmotion.akka.rabbitmq.ChannelActor" level="OFF"/>-->
+    <!--<logger name="com.thenewmotion.akka.rabbitmq.ConnectionActor" level="OFF"/>-->
+    <!--<logger name="com.zaxxer.hikari" level="OFF" />-->
+
+    <root>
+        <priority value="ERROR"/>
+        <appender-ref ref="console" />
+    </root>
+
+</log4j:configuration>
