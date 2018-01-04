@@ -10,7 +10,7 @@ import scala.language.implicitConversions
   * @param sex gender of the baby
   * @param count number of babies with the name, gender in the county for the given year
   */
-case class BabyData(year: Int, name: String, county: String, sex: Gender, count: Int) { }
+case class BabyData(year: Int, name: Name, county: County, sex: Gender, count: NameCount) { }
 
 object BabyData {
   private val yearIdx = 0
