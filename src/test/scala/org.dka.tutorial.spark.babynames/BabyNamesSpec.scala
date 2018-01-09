@@ -60,9 +60,9 @@ class BabyNamesSpec extends FunSpec with Matchers {
           .groupByKey() // group into (name, list of counties)
           .map(e => (e._1, e._2.size)) // convert list of counties for each name to number of counties for the name
 
-      val logan = nameNumberOfCounties.filter(_._1 == "LOGAN").first
-      println(s"headName: ${logan._1}")
-      println(s"headCountyCount: ${logan._2}")
+//      val logan = nameNumberOfCounties.filter(_._1 == "LOGAN").first
+//      println(s"headName: ${logan._1}")
+//      println(s"headCountyCount: ${logan._2}")
 
 
       // now find the name in the most counties
@@ -116,15 +116,16 @@ class BabyNamesSpec extends FunSpec with Matchers {
       albany.count shouldBe 114 // 114 unique names  in albany in 2010
       val kings = countyAndNameCount.filter(_._1 == "KINGS")
       kings.count shouldBe 708
-//      kings.collect().take(5).take(5).foreach(println(_))
       // the births would be the sum of the unique name counts
 
       // to demonstrate what aggregateByKey does
-      //  nameCountToCountOnly is the conversion function, it takes the value (county, count) and returns just the count
+      //  nameCountToCountOnly is the aggregation function, it it does 2 things:
+      //    extracts the NameCount from the value (county, NameCount) and returns just the NameCount
+      //    aggregates the NameCount
       //  sumCounts is the combination function
-      // yields (county1, sum of all NameCount for all names) repeated for each county
-      val nameCountToCountOnly: (NameCount, (Name, NameCount)) => NameCount = (accumulator: NameCount, tuple: (Name, NameCount)) => {
-        accumulator + tuple._2
+      // yields sum of all NameCount for all names) repeated for each county
+      val nameCountToCountOnly: (NameCount, (Name, NameCount)) => NameCount = (accumulator: NameCount, value: (Name, NameCount)) => {
+        accumulator + value._2
       }
       val sumCounts: (Int, Int) => Int = (i1: Int, i2: Int) => {
         i1 + i2
@@ -138,14 +139,112 @@ class BabyNamesSpec extends FunSpec with Matchers {
       val mostPopular: (County, NameCount) = birthsByCounty.sortBy(_._2, ascending = false).first()
       val leastPopular: (County, NameCount) = birthsByCounty.sortBy(_._2, ascending = true).first()
 
-      println(s"mostPopular: $mostPopular")
-      println(s"leastPopular: $leastPopular")
-
       mostPopular._1 shouldBe "KINGS"
       mostPopular._2 shouldBe 23186
-//
+
       leastPopular._1 shouldBe "SENECA"
       leastPopular._2 shouldBe 10
+    }
+    it("should determine the county with the most males/females for a given year") {
+      type GNC = (Gender, NameCount)
+      val desiredYear = 2010
+      val county_GNC: RDD[(County, GNC)] =
+        dataRdd
+          .filter(d => d.year == desiredYear) // only for a given year
+          .map(d => (d.county, (d.gender, d.count))) // (county, (gender, count)) for all counties and name combinations in the desired year
+
+//      val albanyUniqueMaleNames =
+//        county_GNC
+//          .filter(d => d._1 == "ALBANY" && d._2._1 == Male)
+//          .count()
+//      println(s"\nuniquealbany male names: $albanyUniqueMaleNames")
+
+//      val albanyUniqueFemaleNames =
+//        county_GNC
+//          .filter(d => d._1 == "ALBANY" && d._2._1 == Female)
+//          .count()
+//      println(s"\nunique albany female names: $albanyUniqueFemaleNames")
+
+      val nameCountToCountOnly: (NameCount, (Gender, NameCount)) => NameCount = (accumulator: NameCount, value: (Gender, NameCount)) => {
+        accumulator + value._2
+      }
+      val sumCounts: (Int, Int) => Int = (i1: Int, i2: Int) => {
+        i1 + i2
+      }
+
+      val malesByCounty: RDD[(County, NameCount)] =
+        county_GNC
+            .filter(d => d._2._1 == Male)
+          .aggregateByKey(0)(nameCountToCountOnly, sumCounts)
+
+      val femalesByCounty: RDD[(County, NameCount)] =
+        county_GNC
+          .filter(d => d._2._1 == Female)
+          .aggregateByKey(0)(nameCountToCountOnly, sumCounts)
+
+
+//      val albanyMaleBirths = malesByCounty.filter(_._1 == "ALBANY").first()._2
+//      println(s"\nalbany male births: $albanyMaleBirths")
+//      val albanyFemaleBirths = femalesByCounty.filter(_._1 == "ALBANY").first()._2
+//      println(s"albany female births: $albanyFemaleBirths")
+
+//      val orleansMaleBirths = malesByCounty.filter(_._1 == "ORLEANS").first()._2
+//      println(s"\norleans male births: $orleansMaleBirths")
+//      val orleansFemaleBirths = femalesByCounty.filter(_._1 == "ORLEANS").first()._2
+//      println(s"orleans female births: $orleansFemaleBirths")
+
+//      val alleganyMaleBirths = malesByCounty.filter(_._1 == "ALLEGANY").first()._2
+//      println(s"\nallegany male births: $alleganyMaleBirths")
+//      val alleganyFemaleBirths = femalesByCounty.filter(_._1 == "ALLEGANY").first()._2
+//      println(s"allegany female births: $alleganyFemaleBirths")
+
+
+      // if there are more than one county with the most males/females, this will only get the first
+      val mostMales: (County, NameCount) = malesByCounty.sortBy(_._2, ascending = false).first()
+      val leastMales: (County, NameCount) = malesByCounty.sortBy(_._2, ascending = true).first()
+
+      // if there are more than one county with the least males/females, this will only get the first
+      // in this dataset, both ALLEGANY and ORLEANS have 5 females
+      val mostFemales: (County, NameCount) = femalesByCounty.sortBy(_._2, ascending = false).first()
+      val leastFemales: (County, NameCount) = femalesByCounty.sortBy(_._2, ascending = true).first()
+
+//      println(s"\n")
+//      println(s"mostMales: $mostMales")
+//      println(s"mostFemales: $mostFemales")
+
+      mostMales._1 shouldBe "KINGS"
+      mostFemales._1 shouldBe "KINGS"
+
+//      println(s"leastMales: $leastMales")
+//      println(s"leastFemales: $leastFemales")
+
+      leastMales._1 shouldBe "ORLEANS"
+      leastFemales._1 shouldBe "ALLEGANY"
+    }
+    it("should determine the number of males/females in a given year") {
+      type GNC = (Gender, NameCount)
+      val desiredYear = 2010
+      val genderCount: RDD[(Gender, NameCount)] =
+        dataRdd
+          .filter(d => d.year == desiredYear) // only for a given year
+          .map(d => (d.gender, d.count)) // (gender,NameCount)) for all counties and name combinations in the desired year
+
+      // takes 2 (Gender, NameCount) instances and returns a (Gender, NameCount) where the NameCount is the sum of the
+      //  input NameCount(s)
+      val reductionFunc: (GNC, GNC) => GNC = (d1: GNC, d2: GNC) =>  (d1._1, d1._2 + d2._2)
+
+      val males =
+        genderCount
+        .filter(_._1 == Male)
+        .reduce(reductionFunc)
+
+      val females =
+        genderCount
+        .filter(_._1 == Female)
+        .reduce(reductionFunc)
+
+      males._2 shouldBe 67770
+      females._2 shouldBe 48688
     }
   }
 

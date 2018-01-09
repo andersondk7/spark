@@ -7,16 +7,16 @@ import scala.language.implicitConversions
   * @param year year the data was taken
   * @param name first name of the baby
   * @param county county in which the baby was born
-  * @param sex gender of the baby
+  * @param gender gender of the baby
   * @param count number of babies with the name, gender in the county for the given year
   */
-case class BabyData(year: Int, name: Name, county: County, sex: Gender, count: NameCount) { }
+case class BabyData(year: Int, name: Name, county: County, gender: Gender, count: NameCount) { }
 
 object BabyData {
   private val yearIdx = 0
   private val nameIdx = 1
   private val countyIdx: Int = 2
-  private val sexIdx = 3
+  private val genderIdx = 3
   private val countIdx = 4
 
   /**
@@ -28,7 +28,7 @@ object BabyData {
       d(yearIdx).toInt,
       d(nameIdx),
       d(countyIdx),
-      d(sexIdx),
+      d(genderIdx),
       d(countIdx).toInt
     )
 }
