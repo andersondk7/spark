@@ -165,12 +165,8 @@ class BabyNamesSpec extends FunSpec with Matchers {
 //          .count()
 //      println(s"\nunique albany female names: $albanyUniqueFemaleNames")
 
-      val nameCountToCountOnly: (NameCount, (Gender, NameCount)) => NameCount = (accumulator: NameCount, value: (Gender, NameCount)) => {
-        accumulator + value._2
-      }
-      val sumCounts: (Int, Int) => Int = (i1: Int, i2: Int) => {
-        i1 + i2
-      }
+      val nameCountToCountOnly: (NameCount, GNC) => NameCount = (acc: NameCount, value: GNC) => { acc + value._2 }
+      val sumCounts: (Int, Int) => Int = (i: Int, j: Int) => {i + j}
 
       val malesByCounty: RDD[(County, NameCount)] =
         county_GNC
@@ -181,7 +177,6 @@ class BabyNamesSpec extends FunSpec with Matchers {
         county_GNC
           .filter(d => d._2._1 == Female)
           .aggregateByKey(0)(nameCountToCountOnly, sumCounts)
-
 
 //      val albanyMaleBirths = malesByCounty.filter(_._1 == "ALBANY").first()._2
 //      println(s"\nalbany male births: $albanyMaleBirths")
@@ -197,7 +192,6 @@ class BabyNamesSpec extends FunSpec with Matchers {
 //      println(s"\nallegany male births: $alleganyMaleBirths")
 //      val alleganyFemaleBirths = femalesByCounty.filter(_._1 == "ALLEGANY").first()._2
 //      println(s"allegany female births: $alleganyFemaleBirths")
-
 
       // if there are more than one county with the most males/females, this will only get the first
       val mostMales: (County, NameCount) = malesByCounty.sortBy(_._2, ascending = false).first()
@@ -245,6 +239,110 @@ class BabyNamesSpec extends FunSpec with Matchers {
 
       males._2 shouldBe 67770
       females._2 shouldBe 48688
+    }
+    it("should extract a sample of data") {
+      //
+      // see https://www.ma.utexas.edu/users/parker/sampling/repl.htm for an explanation of sampling with/without
+      // replacement.  Basically...
+
+      // sampling conceptually runs through the RDD 'num' times and picks a random element each time so you get
+      //   'num' results
+      //
+      // sampling without replacement
+      //
+      // means that for each sample run, the element in the previous run is removed from the RDD used in the next run,
+      //
+      // For example if on the first run element # 47 is picked then on the second run element #47 is not in
+      // the RDD.  This means that any given element can be in the results at most once and that the results of the nth
+      // sample depends on the (n-1)th sample
+      //
+      // sampling with replacement
+      //
+      // means that for each sample run, the entire RDD is used.
+      //
+      // For example if on the first run element #47 is picked, then on the second run element #47 could also be
+      // picked since it is NOT removed from the RDD that is being sampled
+      //
+      // this becomes a bigger issue for small sample sizes
+      val smallRdd = dataRdd.filter(d => d.county == "ALBANY" && d.name == "MICHAEL")
+      smallRdd.count() shouldBe 7
+//      println(s"smallRdd:\n ${smallRdd.collect().mkString("\n ")}")
+
+      // by choosing the same seed, we get the same sample each time
+      val seed = 8
+      val sampleSize = 4
+      val sampleNoReplacement: Array[BabyData] = smallRdd.takeSample(withReplacement = true, sampleSize, seed)
+      val sampleReplacement: Array[BabyData] = smallRdd.takeSample(withReplacement = false,  sampleSize, seed)
+
+//      println(s"no replacement:\n")
+//      sampleNoReplacement.foreach(println(_))
+//      println(s"\nreplacement:\n")
+//      sampleReplacement.foreach(println(_))
+
+      // when withReplacement is false (i.e. sampled elements are removed) the chances of duplicate values increases.
+      // in our test, we only have 7 elements and we are going to randomly choose an element 4 times, so the chances of
+      // picking the same element are large
+      val noReplacementDuplicate = sampleNoReplacement.count(_.year == 2011)
+      val replacementDuplicate = sampleReplacement.count(_.year == 2011)
+
+      noReplacementDuplicate shouldBe 2
+      replacementDuplicate shouldBe 0
+    }
+    it("should count the number of males/females for each year") {
+      type CNC = (County, NameCount)
+
+      val yearCNCMales: RDD[(Year, CNC)] =
+        dataRdd
+          .filter(d => d.gender == Male) // only males
+          .map(d => (d.year, (d.county, d.count)))
+      val yearCNCFemales: RDD[(Year, CNC)] =
+        dataRdd
+          .filter(d => d.gender == Female)
+          .map(d => (d.year, (d.county, d.count)))
+
+      val extractor: (NameCount, CNC) => NameCount = (acc: NameCount, value: CNC) => acc + value._2
+      val summer: (NameCount, NameCount) => NameCount = (i: NameCount, j: NameCount) => i + j
+
+      val malesByYear: RDD[(Year, NameCount)] =
+        yearCNCMales
+          .aggregateByKey(0)(extractor, summer)
+          .sortBy(_._1)
+
+      val femalesByYear: RDD[(Year, NameCount)] =
+        yearCNCFemales
+          .aggregateByKey(0)(extractor, summer)
+        .sortBy(_._1)
+
+      println(s"\n******************\nmalesByYear:\n${malesByYear.collect().mkString("\n")}")
+      println(s"\n******************\nfemalesByYear:\n${femalesByYear.collect().mkString("\n")}")
+
+    }
+    it("should count the number of males and females for each year") {
+      type GCN = (Gender, County, NameCount)
+      type GenderCount = (Int, Int)
+
+      val yearGCN: RDD[(Year, GCN)] =
+        dataRdd
+          .map(d => (d.year, (d.gender, d.county, d.count)))
+
+      val extractor: (GenderCount, GCN) => GenderCount = (acc: GenderCount, value: GCN) => {
+        val (males, females) = acc  // identify males and female counts
+        val nameCount = value._3    // extract nameCount from value
+        value match {
+          case gcn if gcn._1 == Male => (males + nameCount, females)
+          case _ => (males, females + nameCount) // default to female
+        }
+      }
+
+      val summer: (GenderCount, GenderCount) => GenderCount = (i: GenderCount, j: GenderCount) => (i._1 + j._1 , i._2 + j._2)
+
+      val countsByYear: RDD[(Year, GenderCount)] =
+        yearGCN
+          .aggregateByKey((0,0))(extractor, summer)
+          .sortBy(_._1)
+
+      println(s"\n******************\nByYear:\n${countsByYear.collect().mkString("\n")}\n\n")
+
     }
   }
 
